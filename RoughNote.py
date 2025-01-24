@@ -1,35 +1,49 @@
+import pymysql
+from pymysql import Error
 import pandas as pd
-import yaml
-#generating date range
+from tabulate import tabulate
 
+class getsql():
 
-mlst=pd.date_range(start='2023-10',end="2025-01", freq='ME')
-mnths=pd.DataFrame(mlst).astype(str)
-mlst=[]
-for i in mnths[0]:
-    s=i[:-3]
-    mlst.append(s)
-
-df1=pd.DataFrame()
-
-for i in range(0, len(mlst)-1):
-    dtlst = pd.date_range(start=mlst[i],end=mlst[i+1], freq='D')
-    dates=pd.DataFrame(dtlst).astype(str)
-    dates[0]=dates[0]+'_05-30-00.yaml'
-    dtlst=dates[0].to_list()
-    for j in dtlst:
+    def sql(self,query,i=None):
         try:
-            path=rf"G:\DS\guvi\Projects\Project2\DDSA\DDSA_Code\data\{mlst[i]}\{j}"
-            with open(path, "r") as file:
-                yml = yaml.safe_load(file)
-                file.close
-                df=pd.DataFrame(yml)
-                df1=pd.concat([df1,df])
+            connection = pymysql.connect(
+            host = "gateway01.ap-southeast-1.prod.aws.tidbcloud.com",
+            port = 4000,
+            user = "3LHApunfAprgwZ4.root",
+            password = "UTR1eix9QCrXfwML",
+            database = "nifty50",
+            ssl_verify_cert = True,
+            ssl_verify_identity = True,
+            ssl_ca = ""
+            )
+
+            if connection:
+                cursor=connection.cursor()
+                cursor.execute(query,i)
+                ans=cursor.fetchall()
+                colmn=[i[0] for i in cursor.description]
                 
-        except:
-            continue
 
-print(df1, df1.shape)
+        except Error as e:
+            print(e)
+
+        finally:
+            if connection:
+                cursor.close()
+                connection.close()
+                print("Connection closed")
+                return ans,colmn
 
 
+obj=getsql()
+query= "select distinct ticker from stocks order by ticker"
+l,c=obj.sql(query)
+lst=[i[0] for i in l]
+
+for i in lst:
+    query="select * from stocks where ticker=(%s)"
+    ans,colmn=obj.sql(query,(i))
+    df=pd.DataFrame(ans,columns=colmn)
+    df.to_csv(rf"G:\DS\guvi\Projects\Project2\DDSA\DDSA_Code\cleaned_data\splitted_50\{i}.csv")
 
